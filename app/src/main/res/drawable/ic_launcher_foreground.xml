@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Shield Crest within safe zone -->
+    <path
+        android:pathData="M54,26 C68,26 77,32 77,46 C77,63 62,76 54,82 C46,76 31,63 31,46 C31,32 40,26 54,26 Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#38BDF8"
+        android:fillColor="#1838BDF8" />
+
+    <!-- Inner Core Dial / Chronometer Ring -->
+    <path
+        android:pathData="M54,52 m-14,0 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0"
+        android:strokeWidth="2"
+        android:strokeColor="#F59E0B"
+        android:fillColor="#15F59E0B" />
+
+    <!-- Commitment Target Notch & Hands (Clock pointing to planned commitment) -->
+    <path
+        android:pathData="M54,42 L54,52 L62,56"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Center Pivot Dot -->
+    <path
+        android:pathData="M54,52 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+        android:fillColor="#F59E0B" />
+
+    <!-- Compass / Quadrant Marks on Shield -->
+    <path
+        android:pathData="M54,34 L54,37 M54,67 L54,70 M37,52 L40,52 M68,52 L71,52"
+        android:strokeWidth="1.5"
+        android:strokeColor="#38BDF8"
+        android:strokeLineCap="round" />
+</vector>

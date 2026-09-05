@@ -1,0 +1,6 @@
+{
+  "name": "Boss",
+  "description": "Personal commitment-and-scheduling system enforcing planning-first commitment, strict read-only connectors, and cross-node data integrity.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

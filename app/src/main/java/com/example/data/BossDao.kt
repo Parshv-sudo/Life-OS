@@ -46,6 +46,9 @@ interface BossDao {
     @Query("SELECT * FROM proposals ORDER BY surfacedAt DESC")
     fun getAllProposals(): Flow<List<ProposalEntity>>
 
+    @Query("SELECT * FROM proposals WHERE id = :id LIMIT 1")
+    suspend fun getProposalById(id: String): ProposalEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProposal(proposal: ProposalEntity)
 
@@ -61,6 +64,9 @@ interface BossDao {
 
     @Query("SELECT * FROM tasks WHERE linkedAssignmentId = :assignmentId LIMIT 1")
     suspend fun getTaskForAssignment(assignmentId: String): TaskEntity?
+
+    @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
+    suspend fun getTaskById(id: String): TaskEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity)

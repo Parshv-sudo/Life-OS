@@ -41,8 +41,9 @@ interface ReadOnlyConnector {
 class VolpConnector : ReadOnlyConnector {
     override val name: String = "VOLP Academic Portal"
     private var healthy: Boolean = true
-    private var pollCountToday: Int = 1
+    private var pollCountToday: Int = 0
     private val maxPolls: Int = 2
+    private var lastPollDate: String = ""
 
     override suspend fun authenticate(): SessionHandle {
         // Authenticates via token+uid flow without storing plaintext password (FR-012, FR-020)
@@ -54,8 +55,19 @@ class VolpConnector : ReadOnlyConnector {
         )
     }
 
+    private fun resetIfNewDay() {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        if (today != lastPollDate) {
+            pollCountToday = 0
+            lastPollDate = today
+        }
+    }
+
     override suspend fun fetchNew(): List<RawRecord> {
-        pollCountToday = (pollCountToday + 1).coerceAtMost(maxPolls)
+        resetIfNewDay()
+        if (pollCountToday >= maxPolls) return emptyList() // Rate limit enforced (FR-021)
+        pollCountToday++
         return listOf(
             RawRecord(
                 id = "volp_rec_4401",
@@ -71,7 +83,7 @@ class VolpConnector : ReadOnlyConnector {
     }
 
     override fun isHealthy(): Boolean = healthy
-    override fun getPollCountToday(): Int = pollCountToday
+    override fun getPollCountToday(): Int { resetIfNewDay(); return pollCountToday }
     override fun getMaxPollsPerDay(): Int = maxPolls
 }
 
@@ -84,8 +96,9 @@ class VolpConnector : ReadOnlyConnector {
 class EmailConnector : ReadOnlyConnector {
     override val name: String = "College Faculty Email"
     private var healthy: Boolean = true
-    private var pollCountToday: Int = 3
+    private var pollCountToday: Int = 0
     private val maxPolls: Int = 6
+    private var lastPollDate: String = ""
 
     override suspend fun authenticate(): SessionHandle {
         return SessionHandle(
@@ -96,7 +109,19 @@ class EmailConnector : ReadOnlyConnector {
         )
     }
 
+    private fun resetIfNewDay() {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        if (today != lastPollDate) {
+            pollCountToday = 0
+            lastPollDate = today
+        }
+    }
+
     override suspend fun fetchNew(): List<RawRecord> {
+        resetIfNewDay()
+        if (pollCountToday >= maxPolls) return emptyList() // Rate limit enforced
+        pollCountToday++
         // Relevance filter applied at connector boundary
         return listOf(
             RawRecord(
@@ -116,7 +141,7 @@ class EmailConnector : ReadOnlyConnector {
     }
 
     override fun isHealthy(): Boolean = healthy
-    override fun getPollCountToday(): Int = pollCountToday
+    override fun getPollCountToday(): Int { resetIfNewDay(); return pollCountToday }
     override fun getMaxPollsPerDay(): Int = maxPolls
 }
 

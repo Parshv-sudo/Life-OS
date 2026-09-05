@@ -74,9 +74,12 @@ class BossRepository(private val dao: BossDao) {
     }
 
     suspend fun recordProposalResponse(proposalId: String, response: String, newStatus: ProposalStatus) {
-        val proposals = dao.getAllProposals()
-        // Find proposal
         val now = System.currentTimeMillis()
+        // Actually update the proposal status in the database
+        val proposal = dao.getProposalById(proposalId)
+        if (proposal != null && proposal.status.canTransitionTo(newStatus)) {
+            dao.updateProposal(proposal.copy(status = newStatus, respondedAt = now))
+        }
         dao.insertAudit(
             NodeAuditRecord(
                 timestamp = now,
@@ -124,10 +127,18 @@ class BossRepository(private val dao: BossDao) {
         )
         dao.insertTask(newTask)
 
-        // Mark assignment as planned
+        // Mark assignment as planned (respecting state machine transitions)
         if (assignment != null) {
-            val updatedAssignment = assignment.copy(userStatus = AssignmentStatus.PLANNED)
-            dao.updateAssignment(updatedAssignment)
+            var current = assignment
+            // Transition through intermediate states if necessary
+            if (current.userStatus == AssignmentStatus.UNSEEN) {
+                current = current.copy(userStatus = AssignmentStatus.ACKNOWLEDGED, lastSeenAt = System.currentTimeMillis())
+                dao.updateAssignment(current)
+            }
+            if (current.userStatus == AssignmentStatus.ACKNOWLEDGED) {
+                current = current.copy(userStatus = AssignmentStatus.PLANNED, lastSeenAt = System.currentTimeMillis())
+                dao.updateAssignment(current)
+            }
         }
 
         // Generate Action for Execution Layer (FR-071: An accepted Task with scheduled_start generates an Action)
@@ -166,7 +177,16 @@ class BossRepository(private val dao: BossDao) {
         if (task.linkedAssignmentId != null) {
             val assignment = dao.getAssignmentById(task.linkedAssignmentId)
             if (assignment != null) {
-                dao.updateAssignment(assignment.copy(userStatus = AssignmentStatus.PLANNED))
+                // Transition through intermediate states respecting state machine
+                var current = assignment
+                if (current.userStatus == AssignmentStatus.UNSEEN) {
+                    current = current.copy(userStatus = AssignmentStatus.ACKNOWLEDGED, lastSeenAt = System.currentTimeMillis())
+                    dao.updateAssignment(current)
+                }
+                if (current.userStatus == AssignmentStatus.ACKNOWLEDGED) {
+                    current = current.copy(userStatus = AssignmentStatus.PLANNED, lastSeenAt = System.currentTimeMillis())
+                    dao.updateAssignment(current)
+                }
             }
         }
         dao.insertAudit(
@@ -181,16 +201,32 @@ class BossRepository(private val dao: BossDao) {
     }
 
     suspend fun updateTaskStatus(taskId: String, newStatus: TaskStatus, actualMinutesSpent: Int? = null) {
-        val tasks = mutableListOf<TaskEntity>()
-        // Fetch through query
-        // Here we can read from DB or update
+        val task = dao.getTaskById(taskId) ?: return
+        if (!task.status.canTransitionTo(newStatus)) {
+            dao.insertAudit(
+                NodeAuditRecord(
+                    timestamp = System.currentTimeMillis(),
+                    action = "REJECTED_TRANSITION",
+                    entityType = "Task",
+                    entityId = taskId,
+                    details = "Illegal transition attempted: ${task.status} -> $newStatus",
+                    integrityVerified = false
+                )
+            )
+            return
+        }
+        val updated = task.copy(
+            status = newStatus,
+            actualMinutes = actualMinutesSpent ?: task.actualMinutes
+        )
+        dao.updateTask(updated)
         dao.insertAudit(
             NodeAuditRecord(
                 timestamp = System.currentTimeMillis(),
                 action = "TASK_STATE_CHANGE",
                 entityType = "Task",
                 entityId = taskId,
-                details = "Transition to $newStatus"
+                details = "${task.status} -> $newStatus"
             )
         )
     }
@@ -209,7 +245,7 @@ class BossRepository(private val dao: BossDao) {
             ruleLockId = ruleLockId,
             reason = reason,
             requestedDurationMinutes = durationMinutes,
-            status = ExceptionStatus.COOLING_DOWN,
+            status = ExceptionStatus.REQUESTED,
             requestedAt = now,
             cooldownEndsAt = now + cooldownMs,
             grantedAt = null,
@@ -218,6 +254,11 @@ class BossRepository(private val dao: BossDao) {
             justificationHistory = "[{\"reason\":\"$reason\",\"timestamp\":$now}]"
         )
         dao.insertExceptionRequest(request)
+
+        // Immediately transition to COOLING_DOWN (REQUESTED -> COOLING_DOWN per state machine)
+        val coolingDown = request.copy(status = ExceptionStatus.COOLING_DOWN)
+        dao.insertExceptionRequest(coolingDown)
+
         dao.insertAudit(
             NodeAuditRecord(
                 timestamp = now,

@@ -140,7 +140,7 @@ fun BossApp(viewModel: BossViewModel = viewModel()) {
                 contentColor = TextSecondary,
                 tonalElevation = 8.dp
             ) {
-                BossScreen.values().forEach { screen ->
+                BossScreen.entries.forEach { screen ->
                     val selected = currentScreen == screen
                     NavigationBarItem(
                         selected = selected,

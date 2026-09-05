@@ -47,7 +47,7 @@ fun CommitmentEnforcementDialog(
     var selectedDurationMinutes by remember { mutableStateOf(60) }
 
     val committedTime = now + (selectedOffsetHours * 3600 * 1000L)
-    val committedTimeStr = SimpleDateFormat("h:mm a (today)", Locale.getDefault()).format(Date(committedTime))
+    val committedTimeStr = "${SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(committedTime))} (today)"
 
     // Non-dismissible dialog (FR-052)
     Dialog(

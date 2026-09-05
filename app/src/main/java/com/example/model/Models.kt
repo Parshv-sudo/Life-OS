@@ -2,10 +2,6 @@ package com.example.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverter
-import androidx.room.TypeConverters
-import org.json.JSONArray
-import org.json.JSONObject
 
 // ==========================================
 // STATE MACHINES & INTEGRITY GUARDS

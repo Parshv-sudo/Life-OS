@@ -151,20 +151,12 @@ class BossViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             val task = repository.commitUrgentPlan(assignmentId, startTime, durationMinutes, title)
-            // Execute OS Action via Execution Layer (FR-071, FR-072)
-            val action = ActionEntity(
-                id = "act_" + UUID.randomUUID().toString().take(8),
-                type = "ALARM_NOTIFICATION",
-                title = "Commitment: $title",
-                startTime = startTime,
-                durationMinutes = durationMinutes,
-                linkedTaskId = task.id,
-                platformTarget = "Android",
-                executedOn = "Android-LocalNode",
-                approved = true,
-                status = ActionStatus.APPROVED
-            )
-            executionLayer.executeAction(action)
+            // commitUrgentPlan already creates and inserts the ActionEntity.
+            // Execute the action against OS APIs via Execution Layer (FR-071, FR-072)
+            val existingAction = _uiState.value.allActions.firstOrNull { it.linkedTaskId == task.id }
+            if (existingAction != null) {
+                executionLayer.executeAction(existingAction)
+            }
         }
     }
 
@@ -371,8 +363,12 @@ class BossViewModel(application: Application) : AndroidViewModel(application) {
     fun completeTask(taskId: String, actualMinutes: Int) {
         viewModelScope.launch {
             val task = _uiState.value.allTasks.firstOrNull { it.id == taskId } ?: return@launch
-            val updated = task.copy(status = TaskStatus.COMPLETED, actualMinutes = actualMinutes)
-            db.bossDao().updateTask(updated)
+
+            // Respect state machine: PLANNED -> IN_PROGRESS -> COMPLETED
+            if (task.status == TaskStatus.PLANNED) {
+                repository.updateTaskStatus(taskId, TaskStatus.IN_PROGRESS)
+            }
+            repository.updateTaskStatus(taskId, TaskStatus.COMPLETED, actualMinutes)
 
             // Update course estimation rolling average delta (FR-090)
             val delta = actualMinutes - task.plannedMinutes
@@ -399,11 +395,15 @@ class BossViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             volpConnector.fetchNew()
             emailConnector.fetchNew()
-            _uiState.value = _uiState.value.copy(
-                volpPollCount = volpConnector.getPollCountToday(),
-                emailPollCount = emailConnector.getPollCountToday(),
-                lastSyncTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            )
+            // Poll counts are picked up reactively via observeData().
+            // We only need to update lastSyncTime here since it's not driven by Room flows.
+            _uiState.update { current ->
+                current.copy(
+                    volpPollCount = volpConnector.getPollCountToday(),
+                    emailPollCount = emailConnector.getPollCountToday(),
+                    lastSyncTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                )
+            }
         }
     }
 }

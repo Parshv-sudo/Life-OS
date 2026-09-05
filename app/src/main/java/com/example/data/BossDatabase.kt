@@ -77,7 +77,7 @@ abstract class BossDatabase : RoomDatabase() {
                     context.applicationContext,
                     BossDatabase::class.java,
                     "boss_lifeos.db"
-                ).fallbackToDestructiveMigration().build()
+                ).build()
                 INSTANCE = instance
                 instance
             }
